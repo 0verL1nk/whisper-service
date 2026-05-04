@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import shutil
 import uuid
 from pathlib import Path
@@ -48,7 +49,7 @@ async def list_models():
     for name in AVAILABLE_MODELS:
         model_dir = cache / f"models--Systran--faster-whisper-{name}"
         ctranslate2_dir = cache / f"ct2-faster-whisper-{name}"
-        downloaded = model_dir.exists() or ctranslate2_dir.exists()
+        downloaded = (model_dir / "refs" / "main").exists() or ctranslate2_dir.exists()
         state = _download_state.get(name)
         progress = 0
         status = "idle"
@@ -119,11 +120,13 @@ async def _do_download(model_size: str):
 async def delete_model(model_size: str):
     if model_size not in AVAILABLE_MODELS:
         raise HTTPException(400, f"不支持的模型: {model_size}")
+    _models.pop(model_size, None)
+    gc.collect()
     cache = _get_model_cache_dir()
     for pattern in [f"models--Systran--faster-whisper-{model_size}", f"ct2-faster-whisper-{model_size}"]:
         d = cache / pattern
         if d.exists():
-            shutil.rmtree(d, ignore_errors=True)
+            shutil.rmtree(d)
     _download_state.pop(model_size, None)
     return {"ok": True}
 

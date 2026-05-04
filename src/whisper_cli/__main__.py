@@ -28,9 +28,11 @@ def main():
     # Lock all caches to install directory, not home
     app_dir = _get_app_dir()
     data_dir = app_dir / "data"
+    models_dir = app_dir / "models"
     data_dir.mkdir(exist_ok=True)
+    models_dir.mkdir(exist_ok=True)
     os.environ["HF_HOME"] = str(data_dir / "hf")
-    os.environ["HF_HUB_CACHE"] = str(data_dir / "hf" / "hub")
+    os.environ["HF_HUB_CACHE"] = str(models_dir)
     os.environ["XDG_CACHE_HOME"] = str(data_dir / "cache")
     os.environ["TEMP"] = str(data_dir / "tmp")
     (data_dir / "tmp").mkdir(exist_ok=True)
