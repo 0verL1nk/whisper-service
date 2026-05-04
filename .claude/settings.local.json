@@ -39,7 +39,16 @@
       "Bash(python -c ' *)",
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 1 --workflow=CI)",
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300744630)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300744630 --log-failed)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300744630 --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" release list)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 1 --workflow=\"Build\")",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 1)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25301914038 --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 10)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25301914038 --log)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" api repos/0verL1nk/whisper-service/actions/runs/25301914038/jobs --jq '.jobs[] | select\\(.name | contains\\(\"arm\"\\)\\) | {name, status, conclusion}')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" api repos/0verL1nk/whisper-service/actions/runs/25301914038/jobs --jq '.jobs[] | select\\(.name | contains\\(\"arm\"\\)\\) | .id')",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" api repos/0verL1nk/whisper-service/actions/jobs/74170184641/logs)"
     ]
   }
 }
