@@ -27,6 +27,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Auto-sync version from tag to all config files
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Setting version to $VERSION"
+          # tauri.conf.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          # pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          # frontend/package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       # === Frontend ===
       - uses: pnpm/action-setup@v4
         with:
@@ -50,18 +64,25 @@ jobs:
       - name: Build Python sidecar
         shell: bash
         run: |
-          uv sync
-          uv run pip install pyinstaller
+          uv sync --extra build
           uv run pyinstaller --onefile \
             --name whisper-backend${{ matrix.sidecar_ext }} \
             --hidden-import=whisper_cli \
+            --hidden-import=whisper_cli.__main__ \
             --hidden-import=whisper_cli.server \
             --hidden-import=whisper_cli.transcriber \
+            --hidden-import=uvicorn \
             --hidden-import=uvicorn.logging \
+            --hidden-import=uvicorn.loops \
             --hidden-import=uvicorn.loops.auto \
+            --hidden-import=uvicorn.protocols \
+            --hidden-import=uvicorn.protocols.http \
             --hidden-import=uvicorn.protocols.http.auto \
+            --hidden-import=uvicorn.protocols.websockets \
             --hidden-import=uvicorn.protocols.websockets.auto \
+            --hidden-import=uvicorn.lifespan \
             --hidden-import=uvicorn.lifespan.on \
+            --hidden-import=python_multipart \
             src/whisper_cli/__main__.py
 
       - name: Place sidecar binary

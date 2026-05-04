@@ -4,6 +4,11 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub struct Backend {
     child: Mutex<Option<std::process::Child>>,
     port: Mutex<u16>,
@@ -62,10 +67,10 @@ fn resolve_sidecar_path(resource_dir: &std::path::Path) -> Option<std::path::Pat
 }
 
 fn parse_ready_port(line: &str) -> Option<u16> {
-    // Format: "READY http://127.0.0.1:PORT"
+    let line = line.trim();
     line.strip_prefix("READY http://")?
-        .split(':')
-        .nth(1)?
+        .rsplit(':')
+        .next()?
         .trim()
         .parse()
         .ok()
@@ -100,13 +105,17 @@ pub fn run() {
                 }
             };
 
-            let mut child = match Command::new(&target)
-                .arg("--port")
-                .arg("0")
+            eprintln!("Starting backend: {}", target.display());
+
+            let mut cmd = Command::new(&target);
+            cmd.arg("--port").arg("0")
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-            {
+                .stderr(Stdio::piped());
+
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(CREATE_NO_WINDOW);
+
+            let mut child = match cmd.spawn() {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("Warning: failed to spawn backend: {e}");
@@ -114,26 +123,38 @@ pub fn run() {
                 }
             };
 
-            // Read READY line from stdout to get the actual port
+            // Read lines from stdout until we find READY
             let stdout = child.stdout.take().expect("no stdout");
             let mut reader = BufReader::new(stdout);
-            let mut first_line = String::new();
-            match reader.read_line(&mut first_line) {
-                Ok(_) => {
-                    if let Some(port) = parse_ready_port(&first_line) {
-                        eprintln!("Backend started on port {port}");
-                        let backend = app.state::<Backend>();
-                        *backend.port.lock().unwrap() = port;
-                    } else {
-                        eprintln!("Warning: unexpected backend output: {first_line:?}");
+            let mut line = String::new();
+            loop {
+                line.clear();
+                match reader.read_line(&mut line) {
+                    Ok(0) => {
+                        eprintln!("Warning: backend stdout closed before READY");
+                        break;
+                    }
+                    Ok(_) => {
+                        let trimmed = line.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+                        if let Some(port) = parse_ready_port(trimmed) {
+                            eprintln!("Backend started on port {port}");
+                            let backend = app.state::<Backend>();
+                            *backend.port.lock().unwrap() = port;
+                            break;
+                        }
+                        eprintln!("[backend:out] {}", trimmed);
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: failed to read backend output: {e}");
+                        break;
                     }
                 }
-                Err(e) => eprintln!("Warning: failed to read backend output: {e}"),
             }
 
-            // Keep reading stdout in background
-            let backend_state = app.state::<Backend>();
-            let port = *backend_state.port.lock().unwrap();
+            // Read stderr in background
             let _ = std::thread::spawn(move || {
                 let mut reader = BufReader::new(child.stderr.take().unwrap());
                 let mut line = String::new();
@@ -141,13 +162,21 @@ pub fn run() {
                     line.clear();
                     match reader.read_line(&mut line) {
                         Ok(0) | Err(_) => break,
-                        _ => eprintln!("[backend] {}", line.trim()),
+                        _ => {
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() {
+                                eprintln!("[backend] {}", trimmed);
+                            }
+                        }
                     }
                 }
             });
 
-            // Store port for file upload URL
-            eprintln!("Backend ready at http://127.0.0.1:{port}");
+            // Store child for cleanup
+            {
+                let backend = app.state::<Backend>();
+                *backend.child.lock().unwrap() = Some(child);
+            }
 
             Ok(())
         })

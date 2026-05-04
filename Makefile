@@ -11,19 +11,25 @@ frontend:
 
 # 构建 Python sidecar
 sidecar: frontend
-	uv sync
-	uv run pip install pyinstaller
+	uv sync --extra build
 	uv run pyinstaller --onefile \
 		--name whisper-backend \
-		--exclude-module pathlib \
 		--hidden-import=whisper_cli \
+		--hidden-import=whisper_cli.__main__ \
 		--hidden-import=whisper_cli.server \
 		--hidden-import=whisper_cli.transcriber \
+		--hidden-import=uvicorn \
 		--hidden-import=uvicorn.logging \
+		--hidden-import=uvicorn.loops \
 		--hidden-import=uvicorn.loops.auto \
+		--hidden-import=uvicorn.protocols \
+		--hidden-import=uvicorn.protocols.http \
 		--hidden-import=uvicorn.protocols.http.auto \
+		--hidden-import=uvicorn.protocols.websockets \
 		--hidden-import=uvicorn.protocols.websockets.auto \
+		--hidden-import=uvicorn.lifespan \
 		--hidden-import=uvicorn.lifespan.on \
+		--hidden-import=python_multipart \
 		src/whisper_cli/__main__.py
 
 # 本地构建 Tauri 可执行文件
