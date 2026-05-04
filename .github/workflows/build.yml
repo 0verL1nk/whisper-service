@@ -16,12 +16,27 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             sidecar_ext: .exe
+            rust_target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            sidecar_ext: .exe
+            rust_target: aarch64-pc-windows-msvc
           - os: macos-latest
             target: aarch64-apple-darwin
             sidecar_ext: ''
+            rust_target: aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+            sidecar_ext: ''
+            rust_target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             sidecar_ext: ''
+            rust_target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            sidecar_ext: ''
+            rust_target: aarch64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -73,6 +88,8 @@ jobs:
       # === Rust / Tauri ===
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -80,7 +97,7 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -100,6 +117,7 @@ jobs:
         with:
           projectPath: .
           tauriScript: cargo tauri
+          args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
           releaseName: 'Whisper ${{ github.ref_name }}'
           releaseBody: 'Whisper 语音转文字桌面客户端'
