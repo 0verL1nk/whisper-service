@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           uv sync --extra build
-          uv run pyinstaller --onefile \
+          uv run pyinstaller --onefile --noconsole \
             --name whisper-backend${{ matrix.sidecar_ext }} \
             --hidden-import=whisper_cli \
             --hidden-import=whisper_cli.__main__ \

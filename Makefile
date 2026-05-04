@@ -12,7 +12,7 @@ frontend:
 # 构建 Python sidecar
 sidecar: frontend
 	uv sync --extra build
-	uv run pyinstaller --onefile \
+	uv run pyinstaller --onefile --noconsole \
 		--name whisper-backend \
 		--hidden-import=whisper_cli \
 		--hidden-import=whisper_cli.__main__ \
