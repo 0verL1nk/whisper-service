@@ -7,21 +7,20 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            ext: .exe
             sidecar_ext: .exe
           - os: macos-latest
             target: aarch64-apple-darwin
-            ext: ''
             sidecar_ext: ''
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            ext: ''
             sidecar_ext: ''
 
     runs-on: ${{ matrix.os }}
@@ -49,6 +48,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Build Python sidecar
+        shell: bash
         run: |
           uv sync
           uv run pip install pyinstaller
@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
-          cp dist/whisper-backend${{ matrix.sidecar_ext }} src-tauri/binaries/whisper-backend-${{ matrix.target }}${{ matrix.sidecar_ext }}
+          cp dist/whisper-backend${{ matrix.sidecar_ext }} "src-tauri/binaries/whisper-backend-${{ matrix.target }}${{ matrix.sidecar_ext }}"
 
       # === Rust / Tauri ===
       - name: Install Rust stable
@@ -84,6 +84,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install tauri CLI
+        run: cargo install tauri-cli --version "^2"
 
       - uses: tauri-apps/tauri-action@v0
         env:
