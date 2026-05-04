@@ -31,7 +31,12 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25299667365 --log-failed)",
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 5)",
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 4)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300071814 --log-failed)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300071814 --log-failed)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 3 --workflow=CI)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 2 --workflow=CI)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300191038 --log-failed)",
+      "Bash(mkdir -p E:/whisper/src-tauri/icons)",
+      "Bash(python -c ' *)"
     ]
   }
 }
