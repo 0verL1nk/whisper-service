@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegram/nicegram-ios/refs/heads/NiceGramX/main/NiceGram/Supporting%20Files/tauri.config.v2.schema.json",
-  "productName": "Whisper 语音转文字",
+  "productName": "Whisper",
   "version": "0.1.0",
   "identifier": "com.whisper.service",
   "build": {

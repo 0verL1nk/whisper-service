@@ -36,7 +36,10 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 2 --workflow=CI)",
       "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300191038 --log-failed)",
       "Bash(mkdir -p E:/whisper/src-tauri/icons)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run list --limit 1 --workflow=CI)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300744630)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh\" run view 25300744630 --log-failed)"
     ]
   }
 }
