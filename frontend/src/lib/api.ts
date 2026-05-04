@@ -98,11 +98,7 @@ export async function listModels(): Promise<ModelInfo[]> {
 }
 
 export async function downloadModel(modelSize: string): Promise<void> {
-  try {
-    await post(`/api/models/${modelSize}/download`)
-  } catch (e: any) {
-    throw new Error(e.toString())
-  }
+  await post(`/api/models/${modelSize}/download`)
 }
 
 export async function deleteModel(modelSize: string): Promise<void> {
