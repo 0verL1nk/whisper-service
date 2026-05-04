@@ -1,0 +1,98 @@
+name: Build & Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
+            sidecar_ext: .exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: ''
+            sidecar_ext: ''
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ''
+            sidecar_ext: ''
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # === Frontend ===
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # === Python sidecar ===
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build Python sidecar
+        run: |
+          uv sync
+          uv run pip install pyinstaller
+          uv run pyinstaller --onefile \
+            --name whisper-backend${{ matrix.sidecar_ext }} \
+            --hidden-import=whisper_cli \
+            --hidden-import=whisper_cli.server \
+            --hidden-import=whisper_cli.transcriber \
+            --hidden-import=uvicorn.logging \
+            --hidden-import=uvicorn.loops.auto \
+            --hidden-import=uvicorn.protocols.http.auto \
+            --hidden-import=uvicorn.protocols.websockets.auto \
+            --hidden-import=uvicorn.lifespan.on \
+            src/whisper_cli/__main__.py
+
+      - name: Place sidecar binary
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          cp dist/whisper-backend${{ matrix.sidecar_ext }} src-tauri/binaries/whisper-backend-${{ matrix.target }}${{ matrix.sidecar_ext }}
+
+      # === Rust / Tauri ===
+      - name: Install Rust stable
+        uses: dtolnay/rust-action/setup@v1
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tauriScript: cargo tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Whisper ${{ github.ref_name }}'
+          releaseBody: 'Whisper 语音转文字桌面客户端'
+          releaseDraft: true
+          prerelease: false

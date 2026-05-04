@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader)",
+      "Bash(wmic cpu *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(wmic OS get TotalVisibleMemorySize,FreePhysicalMemory /format:list)",
+      "Bash(pip --version)",
+      "Bash(uv *)",
+      "Bash(pnpm *)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(where rustc *)",
+      "Bash(where cargo *)",
+      "Bash(gh auth *)",
+      "Bash(where gh *)",
+      "Bash(git add *)",
+      "Bash(winget install *)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(gh *)",
+      "Read(//c/Users/Ling/.cargo/bin/**)",
+      "Read(//c/Users/Ling/.rustup/toolchains/**)",
+      "Bash(/c/Users/Ling/.cargo/bin/rustc --version)",
+      "Bash(/c/Users/Ling/.cargo/bin/cargo --version)"
+    ]
+  }
+}
