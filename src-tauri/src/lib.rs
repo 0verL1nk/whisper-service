@@ -161,8 +161,9 @@ pub fn run() {
             }
 
             // Read stderr in background
+            let stderr = child.stderr.take();
             let _ = std::thread::spawn(move || {
-                let mut reader = BufReader::new(child.stderr.take().unwrap());
+                let mut reader = BufReader::new(stderr.unwrap());
                 let mut line = String::new();
                 loop {
                     line.clear();
