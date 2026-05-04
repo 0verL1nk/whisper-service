@@ -126,5 +126,5 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Whisper ${{ github.ref_name }}'
           releaseBody: 'Whisper 语音转文字桌面客户端'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
