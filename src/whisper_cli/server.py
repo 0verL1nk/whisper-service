@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -28,9 +28,9 @@ def get_model(model_size: str) -> WhisperService:
 
 @app.post("/api/transcribe")
 async def transcribe(
-    files: list[UploadFile] = File(...),
-    model: str = Form("large-v3"),
-    language: str = Form(""),
+    files: list[UploadFile] = File(...),  # noqa: B008
+    model: str = Form("large-v3"),  # noqa: B008
+    language: str = Form(""),  # noqa: B008
 ):
     if not files:
         raise HTTPException(400, "请上传音频文件")
