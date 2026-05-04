@@ -72,7 +72,7 @@ jobs:
 
       # === Rust / Tauri ===
       - name: Install Rust stable
-        uses: dtolnay/rust-action/setup@v1
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
