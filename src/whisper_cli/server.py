@@ -7,7 +7,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .transcriber import _get_app_dir, _get_model_cache_dir, WhisperService
+from .transcriber import WhisperService, _get_app_dir, _get_model_cache_dir
 
 
 def _data_dir(name: str) -> Path:

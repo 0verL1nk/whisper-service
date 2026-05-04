@@ -87,7 +87,12 @@ pub fn run() {
             child: Mutex::new(None),
             port: Mutex::new(0),
         })
-        .invoke_handler(tauri::generate_handler![proxy_get, proxy_post, proxy_delete, get_backend_port])
+        .invoke_handler(tauri::generate_handler![
+            proxy_get,
+            proxy_post,
+            proxy_delete,
+            get_backend_port
+        ])
         .setup(|app| {
             let resource_dir = match app.path().resource_dir() {
                 Ok(d) => d,
@@ -108,7 +113,8 @@ pub fn run() {
             eprintln!("Starting backend: {}", target.display());
 
             let mut cmd = Command::new(&target);
-            cmd.arg("--port").arg("0")
+            cmd.arg("--port")
+                .arg("0")
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
 
