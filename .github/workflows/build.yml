@@ -34,11 +34,11 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "Setting version to $VERSION"
           # tauri.conf.json
-          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
           # pyproject.toml
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           # frontend/package.json
-          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" frontend/package.json
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       # === Frontend ===
