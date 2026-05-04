@@ -23,3 +23,10 @@ src-tauri/binaries/whisper-backend*
 
 # PyInstaller
 *.spec
+
+# Debug
+tauri-debug.log
+
+# Tauri generated
+src-tauri/gen/
+src-tauri/src-tauri/

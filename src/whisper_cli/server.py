@@ -1,4 +1,6 @@
 import asyncio
+import shutil
+import sys
 import uuid
 from pathlib import Path
 
@@ -6,15 +8,126 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .transcriber import WhisperService
+from .transcriber import _get_app_dir, _get_model_cache_dir, WhisperService
 
-UPLOAD_DIR = Path("uploads")
-RESULT_DIR = Path("results")
-FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
-UPLOAD_DIR.mkdir(exist_ok=True)
-RESULT_DIR.mkdir(exist_ok=True)
+
+def _data_dir(name: str) -> Path:
+    p = _get_app_dir() / name
+    p.mkdir(exist_ok=True)
+    return p
+
+
+UPLOAD_DIR = _data_dir("uploads")
+RESULT_DIR = _data_dir("results")
+FRONTEND_DIR = _get_app_dir() / "frontend" / "dist"
+
+AVAILABLE_MODELS = ["tiny", "base", "small", "medium", "large-v3"]
+
+# Approximate model sizes in bytes for progress estimation
+MODEL_SIZES = {
+    "tiny": 75_000_000,
+    "base": 145_000_000,
+    "small": 500_000_000,
+    "medium": 1_500_000_000,
+    "large-v3": 3_000_000_000,
+}
 
 app = FastAPI(title="Whisper 语音转文字")
+
+_download_state: dict[str, dict] = {}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/api/models")
+async def list_models():
+    cache = _get_model_cache_dir()
+    models = []
+    for name in AVAILABLE_MODELS:
+        model_dir = cache / f"models--Systran--faster-whisper-{name}"
+        ctranslate2_dir = cache / f"ct2-faster-whisper-{name}"
+        downloaded = model_dir.exists() or ctranslate2_dir.exists()
+        state = _download_state.get(name)
+        progress = 0
+        status = "idle"
+        if state:
+            status = state.get("status", "idle")
+            progress = state.get("progress", 0)
+        models.append({"name": name, "downloaded": downloaded, "status": status, "progress": progress})
+    return {"models": models}
+
+
+@app.post("/api/models/{model_size}/download")
+async def download_model(model_size: str):
+    if model_size not in AVAILABLE_MODELS:
+        raise HTTPException(400, f"不支持的模型: {model_size}")
+    state = _download_state.get(model_size)
+    if state and state.get("status") == "downloading":
+        raise HTTPException(409, "正在下载中")
+
+    _download_state[model_size] = {"status": "downloading", "progress": 0}
+    asyncio.create_task(_do_download(model_size))
+    return {"status": "downloading"}
+
+
+def _get_dir_size(path: Path) -> int:
+    total = 0
+    if path.exists():
+        for f in path.rglob("*"):
+            if f.is_file():
+                total += f.stat().st_size
+    return total
+
+
+async def _do_download(model_size: str):
+    cache = _get_model_cache_dir()
+    expected = MODEL_SIZES.get(model_size, 1_000_000_000)
+    loop = asyncio.get_event_loop()
+
+    # Monitor progress while downloading
+    model_dir_name = f"models--Systran--faster-whisper-{model_size}"
+    monitor_started = False
+
+    async def _monitor_progress():
+        nonlocal monitor_started
+        monitor_started = True
+        while _download_state.get(model_size, {}).get("status") == "downloading":
+            current_size = _get_dir_size(cache / model_dir_name)
+            pct = min(int((current_size / expected) * 100), 99)
+            _download_state[model_size]["progress"] = pct
+            await asyncio.sleep(1)
+
+    monitor = asyncio.create_task(_monitor_progress())
+
+    def _download():
+        from faster_whisper import WhisperModel
+
+        WhisperModel(model_size, device="cpu", compute_type="int8", download_root=str(cache))
+
+    try:
+        await loop.run_in_executor(None, _download)
+        _download_state[model_size] = {"status": "done", "progress": 100}
+    except Exception as e:
+        _download_state[model_size] = {"status": "error", "progress": 0, "error": str(e)}
+    finally:
+        monitor.cancel()
+
+
+@app.delete("/api/models/{model_size}")
+async def delete_model(model_size: str):
+    if model_size not in AVAILABLE_MODELS:
+        raise HTTPException(400, f"不支持的模型: {model_size}")
+    cache = _get_model_cache_dir()
+    for pattern in [f"models--Systran--faster-whisper-{model_size}", f"ct2-faster-whisper-{model_size}"]:
+        d = cache / pattern
+        if d.exists():
+            shutil.rmtree(d, ignore_errors=True)
+    _download_state.pop(model_size, None)
+    return {"ok": True}
+
 
 _models: dict[str, WhisperService] = {}
 _tasks: dict[str, dict] = {}

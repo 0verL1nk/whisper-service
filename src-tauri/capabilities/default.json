@@ -1,0 +1,26 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-spawn",
+    "shell:allow-execute",
+    "shell:allow-kill",
+    "shell:allow-stdin-write",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/whisper-backend",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:default"
+  ]
+}

@@ -1,13 +1,11 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicegram/nicegram-ios/refs/heads/NiceGramX/main/NiceGram/Supporting%20Files/tauri.config.v2.schema.json",
   "productName": "Whisper",
   "version": "0.1.0",
   "identifier": "com.whisper.service",
   "build": {
     "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "cd ../frontend && pnpm dev",
-    "beforeBuildCommand": "cd ../frontend && pnpm build"
+    "beforeDevCommand": "cd ../frontend && pnpm dev"
   },
   "app": {
     "windows": [
@@ -16,7 +14,8 @@
         "width": 900,
         "height": 720,
         "center": true,
-        "resizable": true
+        "resizable": true,
+        "decorations": false
       }
     ],
     "security": {
@@ -35,17 +34,5 @@
     ],
     "externalBin": ["binaries/whisper-backend"],
     "resources": []
-  },
-  "plugins": {
-    "shell": {
-      "sidecar": true,
-      "scope": [
-        {
-          "name": "binaries/whisper-backend",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
   }
 }

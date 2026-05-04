@@ -1,62 +1,38 @@
-import { useCallback, useState } from 'react'
-import { Upload, FileAudio } from 'lucide-react'
+import { open } from '@tauri-apps/plugin-dialog'
+import { readFile } from '@tauri-apps/plugin-fs'
+import { FolderOpen, Plus } from 'lucide-react'
 import { useTranscriptionStore } from '@/stores/transcription'
+import { Button } from '@/components/ui/button'
 
-const ACCEPTED = '.mp3,.wav,.m4a,.flac,.ogg,.wma,.aac,.webm'
-
-export function DropZone() {
+export function FilePicker() {
   const addFiles = useTranscriptionStore((s) => s.addFiles)
-  const [dragging, setDragging] = useState(false)
 
-  const handleFiles = useCallback(
-    (fileList: FileList | null) => {
-      if (!fileList) return
-      addFiles(Array.from(fileList))
-    },
-    [addFiles],
-  )
+  const handlePick = async () => {
+    const paths = await open({
+      multiple: true,
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'flac', 'ogg', 'wma', 'aac', 'webm'] }],
+    })
+    if (!paths) return
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setDragging(false)
-      handleFiles(e.dataTransfer.files)
-    },
-    [handleFiles],
-  )
+    const files: File[] = []
+    for (const p of paths) {
+      const data = await readFile(p)
+      const name = p.split(/[\\/]/).pop() || 'audio'
+      files.push(new File([data], name))
+    }
+    addFiles(files)
+  }
 
   return (
-    <div
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragging(true)
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
-      className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
-        dragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
-      }`}
-      onClick={() => document.getElementById('file-input')?.click()}
-    >
-      <input
-        id="file-input"
-        type="file"
-        multiple
-        accept={ACCEPTED}
-        className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
-      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-        {dragging ? (
-          <FileAudio className="h-10 w-10 text-primary" />
-        ) : (
-          <Upload className="h-10 w-10" />
-        )}
-        <p className="text-lg font-medium">
-          {dragging ? '松开以上传文件' : '拖拽音频文件到此处，或点击选择'}
-        </p>
-        <p className="text-sm">支持 MP3、WAV、M4A、FLAC、OGG 等格式</p>
-      </div>
+    <div className="flex gap-2">
+      <Button onClick={handlePick} className="gap-2">
+        <Plus className="h-4 w-4" />
+        选择音频文件
+      </Button>
+      <Button variant="outline" onClick={handlePick} className="gap-2">
+        <FolderOpen className="h-4 w-4" />
+        选择文件夹
+      </Button>
     </div>
   )
 }

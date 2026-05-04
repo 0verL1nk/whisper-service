@@ -8,6 +8,7 @@ dependencies = [
     "faster-whisper>=1.1",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
+    "python-multipart>=0.0.18",
 ]
 
 [project.scripts]
