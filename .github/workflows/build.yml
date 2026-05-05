@@ -106,23 +106,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Cache tauri-cli
-        id: cache-tauri-cli
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/cargo-tauri
-          key: tauri-cli-${{ runner.os }}-2
-
-      - name: Install tauri CLI
-        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
-        run: cargo install tauri-cli --version "^2" --locked
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tauriScript: cargo tauri
+          tauriScript: pnpm tauri
           tagName: ${{ github.ref_name }}
           releaseName: 'Whisper ${{ github.ref_name }}'
           releaseBody: 'Whisper 语音转文字桌面客户端'
