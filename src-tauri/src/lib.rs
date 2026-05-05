@@ -15,13 +15,9 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[cfg(target_os = "windows")]
 const DETACHED_PROCESS: u32 = 0x00000008;
 
+// Windows Job Object constants
 #[cfg(target_os = "windows")]
-fn kill_process_tree(pid: u32) {
-    let _ = Command::new("taskkill")
-        .args(["/F", "/T", "/PID", &pid.to_string()])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output();
-}
+const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
 
 #[cfg(target_os = "windows")]
 fn kill_orphan_backends() {
@@ -31,23 +27,59 @@ fn kill_orphan_backends() {
         .output();
 }
 
+#[cfg(target_os = "windows")]
+fn assign_to_kill_job(pid: u32) {
+    use std::mem;
+    use std::ptr;
+
+    unsafe {
+        let job =
+            windows_sys::Win32::System::JobObjects::CreateJobObjectW(ptr::null(), ptr::null());
+        if job.is_null() {
+            eprintln!("Warning: failed to create job object");
+            return;
+        }
+
+        let mut info: windows_sys::Win32::System::JobObjects::JOBOBJECT_BASIC_LIMIT_INFORMATION =
+            mem::zeroed();
+        info.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        let result = windows_sys::Win32::System::JobObjects::SetInformationJobObject(
+            job,
+            windows_sys::Win32::System::JobObjects::JobObjectBasicLimitInformation,
+            &info as *const _ as *const _,
+            mem::size_of::<windows_sys::Win32::System::JobObjects::JOBOBJECT_BASIC_LIMIT_INFORMATION>(
+            ) as u32,
+        );
+        if result == 0 {
+            eprintln!("Warning: failed to set job object info");
+            return;
+        }
+
+        let process = windows_sys::Win32::System::Threading::OpenProcess(
+            windows_sys::Win32::System::Threading::PROCESS_SET_QUOTA
+                | windows_sys::Win32::System::Threading::PROCESS_TERMINATE,
+            0,
+            pid,
+        );
+        if process.is_null() {
+            eprintln!("Warning: failed to open process {pid}");
+            return;
+        }
+
+        let result = windows_sys::Win32::System::JobObjects::AssignProcessToJobObject(job, process);
+        if result == 0 {
+            eprintln!("Warning: failed to assign process to job object");
+        }
+        // Intentionally leak `job` handle — it must stay open for the lifetime
+        // of the parent process. When the parent exits (by any means), the OS
+        // closes the handle and kills all processes in the job.
+    }
+}
+
 pub struct Backend {
     child: Mutex<Option<std::process::Child>>,
     port: Mutex<u16>,
-}
-
-impl Drop for Backend {
-    fn drop(&mut self) {
-        if let Ok(mut guard) = self.child.try_lock() {
-            if let Some(ref mut proc) = *guard {
-                #[cfg(target_os = "windows")]
-                kill_process_tree(proc.id());
-                #[cfg(not(target_os = "windows"))]
-                let _ = proc.kill();
-                let _ = proc.wait();
-            }
-        }
-    }
 }
 
 fn do_request(port: u16, method: &str, path: &str) -> Result<String, String> {
@@ -123,14 +155,17 @@ fn parse_ready_port(line: &str) -> Option<u16> {
 }
 
 fn cleanup_and_exit(app: &tauri::AppHandle) {
-    if let Some(backend) = app.try_state::<Backend>() {
-        if let Ok(mut c) = backend.child.lock() {
-            if let Some(ref mut proc) = *c {
-                #[cfg(target_os = "windows")]
-                kill_process_tree(proc.id());
-                #[cfg(not(target_os = "windows"))]
-                let _ = proc.kill();
-                let _ = proc.wait();
+    // Kill backend explicitly for faster exit
+    #[cfg(target_os = "windows")]
+    kill_orphan_backends();
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Some(backend) = app.try_state::<Backend>() {
+            if let Ok(mut c) = backend.child.lock() {
+                if let Some(ref mut proc) = *c {
+                    let _ = proc.kill();
+                    let _ = proc.wait();
+                }
             }
         }
     }
@@ -236,6 +271,10 @@ pub fn run() {
                     return Ok(());
                 }
             };
+
+            // Assign to Job Object so OS kills backend when parent exits
+            #[cfg(target_os = "windows")]
+            assign_to_kill_job(child.id());
 
             // Read lines from stdout until we find READY
             let stdout = child.stdout.take().expect("no stdout");
