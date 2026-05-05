@@ -17,6 +17,15 @@ def _data_dir(name: str) -> Path:
     return p
 
 
+def _cleanup_incomplete_models():
+    """Remove model directories that lack refs/main (incomplete downloads)."""
+    cache = _get_model_cache_dir()
+    for name in AVAILABLE_MODELS:
+        model_dir = cache / f"models--Systran--faster-whisper-{name}"
+        if model_dir.exists() and not (model_dir / "refs" / "main").exists():
+            shutil.rmtree(model_dir, ignore_errors=True)
+
+
 UPLOAD_DIR = _data_dir("uploads")
 RESULT_DIR = _data_dir("results")
 FRONTEND_DIR = _get_app_dir() / "frontend" / "dist"
@@ -33,6 +42,8 @@ MODEL_SIZES = {
 }
 
 app = FastAPI(title="Whisper 语音转文字")
+
+_cleanup_incomplete_models()
 
 _download_state: dict[str, dict] = {}
 
@@ -122,11 +133,16 @@ async def delete_model(model_size: str):
         raise HTTPException(400, f"不支持的模型: {model_size}")
     _models.pop(model_size, None)
     gc.collect()
+    await asyncio.sleep(0.5)
     cache = _get_model_cache_dir()
     for pattern in [f"models--Systran--faster-whisper-{model_size}", f"ct2-faster-whisper-{model_size}"]:
         d = cache / pattern
         if d.exists():
-            shutil.rmtree(d)
+            # Delete refs/main first so model shows as not downloaded
+            refs_main = d / "refs" / "main"
+            if refs_main.exists():
+                refs_main.unlink(missing_ok=True)
+            shutil.rmtree(d, ignore_errors=True)
     _download_state.pop(model_size, None)
     return {"ok": True}
 

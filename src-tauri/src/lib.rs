@@ -8,6 +8,8 @@ use tauri::Manager;
 use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+#[cfg(target_os = "windows")]
+const DETACHED_PROCESS: u32 = 0x00000008;
 
 pub struct Backend {
     child: Mutex<Option<std::process::Child>>,
@@ -119,7 +121,7 @@ pub fn run() {
                 .stderr(Stdio::piped());
 
             #[cfg(target_os = "windows")]
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
 
             let mut child = match cmd.spawn() {
                 Ok(c) => c,
