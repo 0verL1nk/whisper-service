@@ -263,6 +263,8 @@ async def _run_transcribe(task_id: str, items: list[dict], model_size: str, lang
 
     _tasks[task_id]["status"] = "done"
     logger.info("Transcribe task %s complete", task_id)
+
+
 async def task_status(task_id: str):
     if task_id not in _tasks:
         raise HTTPException(404, "任务不存在")
