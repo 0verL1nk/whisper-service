@@ -78,8 +78,7 @@ fn save_text_file(path: String, content: String) -> Result<(), String> {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let mut f = std::fs::File::create(&path).map_err(|e| e.to_string())?;
-    f.write_all(content.as_bytes())
-        .map_err(|e| e.to_string())
+    f.write_all(content.as_bytes()).map_err(|e| e.to_string())
 }
 
 fn resolve_sidecar_path(resource_dir: &std::path::Path) -> Option<std::path::PathBuf> {

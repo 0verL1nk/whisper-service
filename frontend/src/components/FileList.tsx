@@ -3,7 +3,7 @@ import {
   X, FileAudio, Loader2, Check, Copy, Download,
   CircleCheck, CircleX, CircleEllipsis, FolderCheck,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranscriptionStore } from '@/stores/transcription'
 import { getTaskStatus, downloadUrl } from '@/lib/api'
 import type { TaskStatus, TaskResult } from '@/lib/api'
@@ -27,18 +27,21 @@ function OverallProgress({ task }: { task: TaskStatus }) {
   const totalCount = task.total
   const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0
 
-  const currentFile = task.results.find((r) => r.status === 'processing')
   const [eta, setEta] = useState<string>('')
-  const [startTime] = useState(() => Date.now())
-  const [prevDone, setPrevDone] = useState(0)
+  const startTimeRef = useRef(0)
+  const prevDoneRef = useRef(0)
 
-  if (!isDone && currentFile && doneCount > 0 && doneCount !== prevDone) {
-    setPrevDone(doneCount)
-    const elapsed = (Date.now() - startTime) / 1000
-    const perFile = elapsed / doneCount
-    const remaining = perFile * (totalCount - doneCount)
-    setEta(formatETA(remaining))
-  }
+  useEffect(() => {
+    if (startTimeRef.current === 0) startTimeRef.current = Date.now()
+    if (isDone) return
+    if (doneCount > 0 && doneCount !== prevDoneRef.current) {
+      prevDoneRef.current = doneCount
+      const elapsed = (Date.now() - startTimeRef.current) / 1000
+      const perFile = elapsed / doneCount
+      const remaining = perFile * (totalCount - doneCount)
+      setEta(formatETA(remaining))
+    }
+  }, [isDone, doneCount, totalCount])
 
   return (
     <div className="space-y-1.5">

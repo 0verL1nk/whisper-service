@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 
@@ -13,21 +13,7 @@ export type UpdateStatus =
 export function useUpdate() {
   const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' })
 
-  const checkForUpdate = useCallback(async () => {
-    try {
-      setStatus({ state: 'checking' })
-      const update = await check()
-      if (update) {
-        setStatus({ state: 'available', version: update.version })
-      } else {
-        setStatus({ state: 'idle' })
-      }
-    } catch {
-      setStatus({ state: 'idle' })
-    }
-  }, [])
-
-  const downloadAndInstall = useCallback(async () => {
+  const downloadAndInstall = async () => {
     try {
       setStatus({ state: 'downloading', percent: 0 })
 
@@ -61,15 +47,30 @@ export function useUpdate() {
     } catch (e) {
       setStatus({ state: 'error', message: String(e) })
     }
-  }, [])
+  }
 
   useEffect(() => {
-    checkForUpdate()
-  }, [checkForUpdate])
-
-  const dismiss = useCallback(() => {
-    setStatus({ state: 'idle' })
+    let cancelled = false
+    ;(async () => {
+      try {
+        setStatus({ state: 'checking' })
+        const update = await check()
+        if (cancelled) return
+        if (update) {
+          setStatus({ state: 'available', version: update.version })
+        } else {
+          setStatus({ state: 'idle' })
+        }
+      } catch {
+        if (!cancelled) setStatus({ state: 'idle' })
+      }
+    })()
+    return () => { cancelled = true }
   }, [])
+
+  const dismiss = () => {
+    setStatus({ state: 'idle' })
+  }
 
   return { status, downloadAndInstall, dismiss }
 }
