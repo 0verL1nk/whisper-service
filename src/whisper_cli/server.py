@@ -1,6 +1,8 @@
 import asyncio
 import gc
+import os
 import shutil
+import stat
 import uuid
 from pathlib import Path
 
@@ -17,13 +19,61 @@ def _data_dir(name: str) -> Path:
     return p
 
 
+def _robust_rmtree(path: Path):
+    """Remove directory tree, handling read-only files on Windows."""
+
+    def _on_error(func, path_str, exc_info):
+        os.chmod(path_str, stat.S_IWRITE)
+        func(path_str)
+
+    if path.exists():
+        shutil.rmtree(path, onerror=_on_error)
+
+
+def _is_model_complete(cache: Path, name: str) -> bool:
+    """Check if a model is fully downloaded by verifying model.bin exists."""
+    model_dir = cache / f"models--Systran--faster-whisper-{name}"
+    ctranslate2_dir = cache / f"ct2-faster-whisper-{name}"
+
+    # Legacy: CTranslate2 model directory
+    if ctranslate2_dir.exists() and (ctranslate2_dir / "model.bin").exists():
+        return True
+
+    refs_main = model_dir / "refs" / "main"
+    if not refs_main.exists():
+        return False
+
+    # Read commit hash from refs/main, then verify model.bin in snapshot
+    try:
+        commit_hash = refs_main.read_text().strip()
+    except OSError:
+        return False
+    if not commit_hash:
+        return False
+
+    return (model_dir / "snapshots" / commit_hash / "model.bin").exists()
+
+
 def _cleanup_incomplete_models():
-    """Remove model directories that lack refs/main (incomplete downloads)."""
+    """Clean up model directories that cannot be resumed.
+
+    huggingface_hub writes refs/main before downloading, so incomplete
+    downloads can be resumed. Only delete directories that have no refs/main
+    (truly unrecoverable state). Keep ct2 dirs without model.bin as they
+    cannot be resumed either.
+    """
     cache = _get_model_cache_dir()
     for name in AVAILABLE_MODELS:
         model_dir = cache / f"models--Systran--faster-whisper-{name}"
+        ctranslate2_dir = cache / f"ct2-faster-whisper-{name}"
+
+        # No refs/main → huggingface_hub can't resume → delete
         if model_dir.exists() and not (model_dir / "refs" / "main").exists():
-            shutil.rmtree(model_dir, ignore_errors=True)
+            _robust_rmtree(model_dir)
+
+        # Legacy ct2 dir without model.bin → not usable, delete
+        if ctranslate2_dir.exists() and not (ctranslate2_dir / "model.bin").exists():
+            _robust_rmtree(ctranslate2_dir)
 
 
 UPLOAD_DIR = _data_dir("uploads")
@@ -58,9 +108,7 @@ async def list_models():
     cache = _get_model_cache_dir()
     models = []
     for name in AVAILABLE_MODELS:
-        model_dir = cache / f"models--Systran--faster-whisper-{name}"
-        ctranslate2_dir = cache / f"ct2-faster-whisper-{name}"
-        downloaded = (model_dir / "refs" / "main").exists() or ctranslate2_dir.exists()
+        downloaded = _is_model_complete(cache, name)
         state = _download_state.get(name)
         progress = 0
         status = "idle"
