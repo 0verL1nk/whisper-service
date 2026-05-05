@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getVersion } from '@tauri-apps/api/app'
-import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown, Square } from 'lucide-react'
+import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown, Square, RefreshCw } from 'lucide-react'
 import { FilePicker } from '@/components/DropZone'
 import { FileList } from '@/components/FileList'
 import { SettingsPanel } from '@/components/SettingsPanel'
@@ -15,13 +15,23 @@ import { Button } from '@/components/ui/button'
 
 type Tab = 'transcribe' | 'models'
 
-function TitleBar({ backendOnline }: { backendOnline: boolean }) {
+function TitleBar({ backendOnline, updateStatus, onCheckUpdate }: {
+  backendOnline: boolean
+  updateStatus: { state: string; version?: string }
+  onCheckUpdate: () => void
+}) {
   const [version] = useState(getVersion)
   const handleDrag = (e: React.MouseEvent) => {
     if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button')) return
     getCurrentWindow().startDragging()
   }
+
+  const updateLabel = updateStatus.state === 'checking'
+    ? '检查中...'
+    : updateStatus.state === 'available'
+      ? `新版本 ${updateStatus.version}`
+      : '已是最新'
 
   return (
     <header
@@ -41,6 +51,15 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
           <><Loader2 className="h-3 w-3 animate-spin" /><span>启动中...</span></>
         )}
       </div>
+      <button
+        className="h-full px-2 flex items-center justify-center gap-1 hover:bg-muted cursor-pointer text-xs text-muted-foreground"
+        onClick={onCheckUpdate}
+        title={updateLabel}
+      >
+        {updateStatus.state === 'checking'
+          ? <Loader2 className="h-3 w-3 animate-spin" />
+          : <RefreshCw className="h-3 w-3" />}
+      </button>
       <button className="h-full w-10 flex items-center justify-center hover:bg-muted cursor-pointer" onClick={() => getCurrentWindow().minimize()}>
         <Minus className="h-3.5 w-3.5" />
       </button>
@@ -56,7 +75,7 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
 
 export default function App() {
   const { files, model, language, activeTaskId, setActiveTaskId } = useTranscriptionStore()
-  const { status: updateStatus, downloadAndInstall, dismiss: dismissUpdate } = useUpdate()
+  const { status: updateStatus, checkForUpdate, downloadAndInstall, dismiss: dismissUpdate } = useUpdate()
   const [tab, setTab] = useState<Tab>('transcribe')
 
   const { data: backendOnline } = useQuery({
@@ -76,7 +95,11 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <TitleBar backendOnline={!!backendOnline} />
+      <TitleBar
+        backendOnline={!!backendOnline}
+        updateStatus={updateStatus}
+        onCheckUpdate={checkForUpdate}
+      />
       <UpdateBanner status={updateStatus} onInstall={downloadAndInstall} onDismiss={dismissUpdate} />
 
       {!backendOnline ? (

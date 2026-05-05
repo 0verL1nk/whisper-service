@@ -13,6 +13,20 @@ export type UpdateStatus =
 export function useUpdate() {
   const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' })
 
+  const checkForUpdate = async () => {
+    try {
+      setStatus({ state: 'checking' })
+      const update = await check()
+      if (update) {
+        setStatus({ state: 'available', version: update.version })
+      } else {
+        setStatus({ state: 'idle' })
+      }
+    } catch {
+      setStatus({ state: 'idle' })
+    }
+  }
+
   const downloadAndInstall = async () => {
     try {
       setStatus({ state: 'downloading', percent: 0 })
@@ -72,5 +86,5 @@ export function useUpdate() {
     setStatus({ state: 'idle' })
   }
 
-  return { status, downloadAndInstall, dismiss }
+  return { status, checkForUpdate, downloadAndInstall, dismiss }
 }
