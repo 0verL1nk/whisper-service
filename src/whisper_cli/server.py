@@ -238,7 +238,10 @@ async def transcribe(
         "status": "processing",
         "total": len(items),
         "done": 0,
-        "results": [],
+        "results": [
+            {"filename": item["filename"], "text": None, "error": None, "status": "pending", "progress": 0}
+            for item in items
+        ],
         "model": model,
     }
 
@@ -251,12 +254,20 @@ async def _run_transcribe(task_id: str, items: list[dict], model_size: str, lang
     svc = get_model(model_size)
     loop = asyncio.get_event_loop()
 
-    for item in items:
+    for i, item in enumerate(items):
+        _tasks[task_id]["results"][i]["status"] = "processing"
+
+        def make_cb(idx: int):
+            def cb(pct: int):
+                _tasks[task_id]["results"][idx]["progress"] = pct
+
+            return cb
+
         try:
-            text = await loop.run_in_executor(None, svc.transcribe_file, item["path"], language)
-            _tasks[task_id]["results"].append({"filename": item["filename"], "text": text, "error": None})
+            text = await loop.run_in_executor(None, svc.transcribe_file, item["path"], language, make_cb(i))
+            _tasks[task_id]["results"][i].update({"text": text, "error": None, "status": "done", "progress": 100})
         except Exception as e:
-            _tasks[task_id]["results"].append({"filename": item["filename"], "text": None, "error": str(e)})
+            _tasks[task_id]["results"][i].update({"text": None, "error": str(e), "status": "error", "progress": 0})
             logger.error("Transcribe failed %s — %s: %s", task_id, item["filename"], e)
         finally:
             _tasks[task_id]["done"] += 1
@@ -265,6 +276,7 @@ async def _run_transcribe(task_id: str, items: list[dict], model_size: str, lang
     logger.info("Transcribe task %s complete", task_id)
 
 
+@app.get("/api/task/{task_id}")
 async def task_status(task_id: str):
     if task_id not in _tasks:
         raise HTTPException(404, "任务不存在")

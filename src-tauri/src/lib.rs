@@ -2,7 +2,11 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
-use tauri::Manager;
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::TrayIconBuilder,
+    Manager,
+};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -67,6 +71,17 @@ fn get_backend_port(backend: tauri::State<Backend>) -> u16 {
     *backend.port.lock().unwrap()
 }
 
+#[tauri::command]
+fn save_text_file(path: String, content: String) -> Result<(), String> {
+    use std::io::Write;
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let mut f = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+    f.write_all(content.as_bytes())
+        .map_err(|e| e.to_string())
+}
+
 fn resolve_sidecar_path(resource_dir: &std::path::Path) -> Option<std::path::PathBuf> {
     let sidecar_name = format!(
         "binaries/whisper-backend-{}{}",
@@ -94,6 +109,21 @@ fn parse_ready_port(line: &str) -> Option<u16> {
         .ok()
 }
 
+fn cleanup_and_exit(app: &tauri::AppHandle) {
+    if let Some(backend) = app.try_state::<Backend>() {
+        if let Ok(mut c) = backend.child.lock() {
+            if let Some(ref mut proc) = *c {
+                #[cfg(target_os = "windows")]
+                kill_process_tree(proc.id());
+                #[cfg(not(target_os = "windows"))]
+                let _ = proc.kill();
+                let _ = proc.wait();
+            }
+        }
+    }
+    app.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -111,9 +141,45 @@ pub fn run() {
             proxy_get,
             proxy_post,
             proxy_delete,
-            get_backend_port
+            get_backend_port,
+            save_text_file
         ])
         .setup(|app| {
+            // Tray icon
+            let show_item = MenuItemBuilder::with_id("show", "显示窗口").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
+            let menu = MenuBuilder::new(app)
+                .item(&show_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("Whisper 语音转文字")
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => cleanup_and_exit(app),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // Spawn backend
             let resource_dir = match app.path().resource_dir() {
                 Ok(d) => d,
                 Err(e) => {
@@ -215,19 +281,9 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(backend) = window.try_state::<Backend>() {
-                    if let Ok(mut c) = backend.child.lock() {
-                        if let Some(ref mut proc) = *c {
-                            #[cfg(target_os = "windows")]
-                            kill_process_tree(proc.id());
-                            #[cfg(not(target_os = "windows"))]
-                            let _ = proc.kill();
-                            let _ = proc.wait();
-                        }
-                    }
-                }
-                std::process::exit(0);
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .run(tauri::generate_context!())

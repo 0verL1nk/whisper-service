@@ -28,9 +28,21 @@ class WhisperService:
             download_root=str(cache),
         )
 
-    def transcribe_file(self, audio_path: str | Path, language: str | None = None) -> str:
-        segments, _info = self.model.transcribe(str(audio_path), language=language, beam_size=5)
-        return "".join(seg.text for seg in segments).strip()
+    def transcribe_file(
+        self,
+        audio_path: str | Path,
+        language: str | None = None,
+        progress_callback: object = None,
+    ) -> str:
+        segments, info = self.model.transcribe(str(audio_path), language=language, beam_size=5)
+        duration = info.duration
+        text_parts: list[str] = []
+        for seg in segments:
+            text_parts.append(seg.text)
+            if duration > 0 and callable(progress_callback):
+                pct = min(int((seg.end / duration) * 100), 99)
+                progress_callback(pct)
+        return "".join(text_parts).strip()
 
 
 def transcribe(

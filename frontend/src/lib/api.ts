@@ -9,6 +9,8 @@ export interface TaskResult {
   filename: string
   text: string | null
   error: string | null
+  status: 'pending' | 'processing' | 'done' | 'error'
+  progress: number
 }
 
 export interface TaskStatus {
@@ -103,4 +105,8 @@ export async function downloadModel(modelSize: string): Promise<void> {
 
 export async function deleteModel(modelSize: string): Promise<void> {
   await del(`/api/models/${modelSize}`)
+}
+
+export async function saveTextFile(path: string, content: string): Promise<void> {
+  await invoke('save_text_file', { path, content })
 }

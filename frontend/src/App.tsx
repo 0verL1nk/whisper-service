@@ -5,7 +5,6 @@ import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown } from 'lucide-
 import { FilePicker } from '@/components/DropZone'
 import { FileList } from '@/components/FileList'
 import { SettingsPanel } from '@/components/SettingsPanel'
-import { ResultPanel } from '@/components/ResultPanel'
 import { ModelsPanel } from '@/components/ModelsPanel'
 import { UpdateBanner } from '@/components/UpdateBanner'
 import { useTranscriptionStore } from '@/stores/transcription'
@@ -42,7 +41,7 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
       <button className="h-full w-10 flex items-center justify-center hover:bg-muted cursor-pointer" onClick={() => getCurrentWindow().minimize()}>
         <Minus className="h-3.5 w-3.5" />
       </button>
-      <button className="h-full w-10 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground cursor-pointer" onClick={() => getCurrentWindow().destroy()}>
+      <button className="h-full w-10 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground cursor-pointer" onClick={() => getCurrentWindow().close()}>
         <X className="h-3.5 w-3.5" />
       </button>
     </header>
@@ -50,10 +49,9 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
 }
 
 export default function App() {
-  const { files, model, language, clearFiles } = useTranscriptionStore()
-  const [taskIds, setTaskIds] = useState<string[]>([])
-  const [tab, setTab] = useState<Tab>('transcribe')
+  const { files, model, language, activeTaskId, setActiveTaskId } = useTranscriptionStore()
   const { status: updateStatus, downloadAndInstall, dismiss: dismissUpdate } = useUpdate()
+  const [tab, setTab] = useState<Tab>('transcribe')
 
   const { data: backendOnline } = useQuery({
     queryKey: ['health'],
@@ -64,13 +62,14 @@ export default function App() {
   const mutation = useMutation({
     mutationFn: () => startTranscribe(files.map((f) => f.file), model, language),
     onSuccess: (data) => {
-      setTaskIds((prev) => [...prev, data.task_id])
-      clearFiles()
+      setActiveTaskId(data.task_id)
     },
   })
 
+  const isTranscribing = !!activeTaskId
+
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       <TitleBar backendOnline={!!backendOnline} />
       <UpdateBanner status={updateStatus} onInstall={downloadAndInstall} onDismiss={dismissUpdate} />
 
@@ -110,9 +109,9 @@ export default function App() {
 
           {tab === 'transcribe' && (
             <>
-              <FilePicker />
+              {!isTranscribing && <FilePicker />}
               <FileList />
-              {files.length > 0 && (
+              {!isTranscribing && files.length > 0 && (
                 <>
                   <SettingsPanel />
                   <Button
@@ -128,13 +127,6 @@ export default function App() {
                     )}
                   </Button>
                 </>
-              )}
-              {taskIds.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  {taskIds.map((id) => (
-                    <ResultPanel key={id} taskId={id} onRemove={() => setTaskIds((prev) => prev.filter((t) => t !== id))} />
-                  ))}
-                </div>
               )}
             </>
           )}
