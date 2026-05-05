@@ -160,7 +160,7 @@ pub fn run() {
                 }
             }
 
-            // Read stderr in background
+            // Read stderr in background (suppress routine HF warnings)
             let stderr = child.stderr.take();
             let _ = std::thread::spawn(move || {
                 let mut reader = BufReader::new(stderr.unwrap());
@@ -171,7 +171,11 @@ pub fn run() {
                         Ok(0) | Err(_) => break,
                         _ => {
                             let trimmed = line.trim();
-                            if !trimmed.is_empty() {
+                            if !trimmed.is_empty()
+                                && !trimmed.contains("unauthenticated requests")
+                                && !trimmed.contains("hf_xet")
+                                && !trimmed.contains("Xet Storage")
+                            {
                                 eprintln!("[backend] {}", trimmed);
                             }
                         }
