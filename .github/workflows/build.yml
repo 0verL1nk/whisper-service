@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  release:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -14,11 +16,9 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             sidecar_ext: .exe
-            artifact_ext: .nsis.zip
           - os: macos-latest
             target: aarch64-apple-darwin
             sidecar_ext: ''
-            artifact_ext: .dmg
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -91,46 +91,16 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           projectPath: .
           tauriScript: frontend/node_modules/.bin/tauri
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: whisper-${{ matrix.target }}
-          path: |
-            src-tauri/target/release/bundle/nsis/*
-            src-tauri/target/release/bundle/dmg/*
-          if-no-files-found: ignore
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: List artifacts
-        run: find artifacts -type f | head -20
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: 'Whisper ${{ github.ref_name }}'
-          body: 'Whisper 语音转文字桌面客户端'
-          draft: false
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Whisper ${{ github.ref_name }}'
+          releaseBody: 'Whisper 语音转文字桌面客户端'
+          releaseDraft: false
           prerelease: false
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.msi
-            artifacts/**/*.dmg
-            artifacts/**/*.AppImage
-            artifacts/**/*.tar.gz
-            artifacts/**/*.deb
+          updaterJsonPreferNsis: true

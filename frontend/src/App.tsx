@@ -7,7 +7,9 @@ import { FileList } from '@/components/FileList'
 import { SettingsPanel } from '@/components/SettingsPanel'
 import { ResultPanel } from '@/components/ResultPanel'
 import { ModelsPanel } from '@/components/ModelsPanel'
+import { UpdateBanner } from '@/components/UpdateBanner'
 import { useTranscriptionStore } from '@/stores/transcription'
+import { useUpdate } from '@/hooks/useUpdate'
 import { startTranscribe, checkHealth } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
@@ -51,6 +53,7 @@ export default function App() {
   const { files, model, language, clearFiles } = useTranscriptionStore()
   const [taskIds, setTaskIds] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('transcribe')
+  const { status: updateStatus, downloadAndInstall, dismiss: dismissUpdate } = useUpdate()
 
   const { data: backendOnline } = useQuery({
     queryKey: ['health'],
@@ -69,6 +72,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <TitleBar backendOnline={!!backendOnline} />
+      <UpdateBanner status={updateStatus} onInstall={downloadAndInstall} onDismiss={dismissUpdate} />
 
       {!backendOnline ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">

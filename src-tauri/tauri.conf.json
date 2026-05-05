@@ -25,6 +25,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -34,5 +35,11 @@
     ],
     "externalBin": ["binaries/whisper-backend"],
     "resources": []
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/0verL1nk/whisper-service/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NTVEMzE5MzExNjUxNjMKUldSalVSWXhHZE5WeVBLUW5DV1NmZEhPMTVldGlkbCtIN05MZ20ycFBVNjIxbXg3YVpSeEZxa04K"
+    }
   }
 }
