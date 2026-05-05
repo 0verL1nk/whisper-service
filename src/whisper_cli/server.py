@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import logging
 import os
 import shutil
 import stat
@@ -11,6 +12,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .transcriber import WhisperService, _get_app_dir, _get_model_cache_dir
+
+logger = logging.getLogger(__name__)
 
 
 def _data_dir(name: str) -> Path:
@@ -94,6 +97,7 @@ MODEL_SIZES = {
 app = FastAPI(title="Whisper 语音转文字")
 
 _cleanup_incomplete_models()
+logger.info("Server initialized")
 
 _download_state: dict[str, dict] = {}
 
@@ -128,6 +132,7 @@ async def download_model(model_size: str):
         raise HTTPException(409, "正在下载中")
 
     _download_state[model_size] = {"status": "downloading", "progress": 0}
+    logger.info("Model download started: %s", model_size)
     asyncio.create_task(_do_download(model_size))
     return {"status": "downloading"}
 
@@ -169,8 +174,10 @@ async def _do_download(model_size: str):
     try:
         await loop.run_in_executor(None, _download)
         _download_state[model_size] = {"status": "done", "progress": 100}
+        logger.info("Model download complete: %s", model_size)
     except Exception as e:
         _download_state[model_size] = {"status": "error", "progress": 0, "error": str(e)}
+        logger.error("Model download failed: %s — %s", model_size, e)
     finally:
         monitor.cancel()
 
@@ -179,6 +186,7 @@ async def _do_download(model_size: str):
 async def delete_model(model_size: str):
     if model_size not in AVAILABLE_MODELS:
         raise HTTPException(400, f"不支持的模型: {model_size}")
+    logger.info("Model delete: %s", model_size)
     _models.pop(model_size, None)
     gc.collect()
     await asyncio.sleep(0.5)
@@ -235,6 +243,7 @@ async def transcribe(
     }
 
     asyncio.create_task(_run_transcribe(task_id, items, model, lang))
+    logger.info("Transcribe task %s: %d files, model=%s", task_id, len(items), model)
     return {"task_id": task_id, "total": len(items)}
 
 
@@ -248,13 +257,12 @@ async def _run_transcribe(task_id: str, items: list[dict], model_size: str, lang
             _tasks[task_id]["results"].append({"filename": item["filename"], "text": text, "error": None})
         except Exception as e:
             _tasks[task_id]["results"].append({"filename": item["filename"], "text": None, "error": str(e)})
+            logger.error("Transcribe failed %s — %s: %s", task_id, item["filename"], e)
         finally:
             _tasks[task_id]["done"] += 1
 
     _tasks[task_id]["status"] = "done"
-
-
-@app.get("/api/task/{task_id}")
+    logger.info("Transcribe task %s complete", task_id)
 async def task_status(task_id: str):
     if task_id not in _tasks:
         raise HTTPException(404, "任务不存在")

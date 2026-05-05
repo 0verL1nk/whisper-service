@@ -1,7 +1,9 @@
 import argparse
+import logging
 import os
 import socket
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import uvicorn
@@ -11,6 +13,24 @@ def _get_app_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
+
+
+def _setup_logging(app_dir: Path):
+    log_dir = app_dir / "logs"
+    log_dir.mkdir(exist_ok=True)
+
+    log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%d')}.log"
+
+    handlers = [logging.FileHandler(log_file, encoding="utf-8")]
+    # Also keep stdout for Tauri to read READY line
+    handlers.append(logging.StreamHandler(sys.stdout))
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=handlers,
+    )
 
 
 def find_free_port(start: int = 8765, end: int = 8799) -> int:
@@ -25,7 +45,6 @@ def find_free_port(start: int = 8765, end: int = 8799) -> int:
 
 
 def main():
-    # Lock all caches to install directory, not home
     app_dir = _get_app_dir()
     data_dir = app_dir / "data"
     models_dir = app_dir / "models"
@@ -37,6 +56,8 @@ def main():
     os.environ["TEMP"] = str(data_dir / "tmp")
     (data_dir / "tmp").mkdir(exist_ok=True)
 
+    _setup_logging(app_dir)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
@@ -44,11 +65,14 @@ def main():
 
     port = args.port if args.port else find_free_port()
     print(f"READY http://{args.host}:{port}", flush=True)
+    logging.info("Backend started on port %s", port)
+
     uvicorn.run(
         "whisper_cli.server:app",
         host=args.host,
         port=port,
         log_level="warning",
+        log_config=None,
     )
 
 
