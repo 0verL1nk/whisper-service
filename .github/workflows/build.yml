@@ -111,7 +111,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tauriScript: pnpm tauri
+          tauriScript: frontend/node_modules/.bin/tauri
           tagName: ${{ github.ref_name }}
           releaseName: 'Whisper ${{ github.ref_name }}'
           releaseBody: 'Whisper 语音转文字桌面客户端'
