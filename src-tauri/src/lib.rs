@@ -11,6 +11,22 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[cfg(target_os = "windows")]
 const DETACHED_PROCESS: u32 = 0x00000008;
 
+#[cfg(target_os = "windows")]
+fn kill_process_tree(pid: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+}
+
+#[cfg(target_os = "windows")]
+fn kill_orphan_backends() {
+    let _ = Command::new("taskkill")
+        .args(["/F", "/IM", "whisper-backend.exe"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+}
+
 pub struct Backend {
     child: Mutex<Option<std::process::Child>>,
     port: Mutex<u16>,
@@ -114,6 +130,9 @@ pub fn run() {
 
             eprintln!("Starting backend: {}", target.display());
 
+            #[cfg(target_os = "windows")]
+            kill_orphan_backends();
+
             let mut cmd = Command::new(&target);
             cmd.arg("--port")
                 .arg("0")
@@ -198,6 +217,9 @@ pub fn run() {
                 if let Some(backend) = window.try_state::<Backend>() {
                     if let Ok(mut c) = backend.child.lock() {
                         if let Some(ref mut proc) = *c {
+                            #[cfg(target_os = "windows")]
+                            kill_process_tree(proc.id());
+                            #[cfg(not(target_os = "windows"))]
                             let _ = proc.kill();
                             let _ = proc.wait();
                         }
