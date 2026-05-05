@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { getVersion } from '@tauri-apps/api/app'
 import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown, Square } from 'lucide-react'
 import { FilePicker } from '@/components/DropZone'
 import { FileList } from '@/components/FileList'
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button'
 type Tab = 'transcribe' | 'models'
 
 function TitleBar({ backendOnline }: { backendOnline: boolean }) {
+  const [version] = useState(getVersion)
   const handleDrag = (e: React.MouseEvent) => {
     if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button')) return
@@ -29,6 +31,7 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
       <div className="flex items-center gap-2 px-3">
         <AudioWaveform className="h-4 w-4 text-primary" />
         <span className="font-semibold text-sm">Whisper</span>
+        <span className="text-xs text-muted-foreground">v{version}</span>
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
