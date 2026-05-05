@@ -36,6 +36,20 @@ pub struct Backend {
     port: Mutex<u16>,
 }
 
+impl Drop for Backend {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.child.try_lock() {
+            if let Some(ref mut proc) = *guard {
+                #[cfg(target_os = "windows")]
+                kill_process_tree(proc.id());
+                #[cfg(not(target_os = "windows"))]
+                let _ = proc.kill();
+                let _ = proc.wait();
+            }
+        }
+    }
+}
+
 fn do_request(port: u16, method: &str, path: &str) -> Result<String, String> {
     let url = format!("http://127.0.0.1:{port}{path}");
     let mut res = match method {
