@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getVersion } from '@tauri-apps/api/app'
@@ -20,7 +20,8 @@ function TitleBar({ backendOnline, updateStatus, onCheckUpdate }: {
   updateStatus: { state: string; version?: string }
   onCheckUpdate: () => void
 }) {
-  const [version] = useState(getVersion)
+  const [version, setVersion] = useState('')
+  useEffect(() => { getVersion().then(setVersion) }, [])
   const handleDrag = (e: React.MouseEvent) => {
     if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button')) return
