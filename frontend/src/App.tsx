@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown } from 'lucide-react'
+import { AudioWaveform, Loader2, CircleDot, Minus, X, FolderDown, Square } from 'lucide-react'
 import { FilePicker } from '@/components/DropZone'
 import { FileList } from '@/components/FileList'
 import { SettingsPanel } from '@/components/SettingsPanel'
@@ -40,6 +40,9 @@ function TitleBar({ backendOnline }: { backendOnline: boolean }) {
       </div>
       <button className="h-full w-10 flex items-center justify-center hover:bg-muted cursor-pointer" onClick={() => getCurrentWindow().minimize()}>
         <Minus className="h-3.5 w-3.5" />
+      </button>
+      <button className="h-full w-10 flex items-center justify-center hover:bg-muted cursor-pointer" onClick={() => getCurrentWindow().toggleMaximize()}>
+        <Square className="h-3 w-3" />
       </button>
       <button className="h-full w-10 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground cursor-pointer" onClick={() => getCurrentWindow().close()}>
         <X className="h-3.5 w-3.5" />
@@ -83,7 +86,7 @@ export default function App() {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <main className="flex-1 overflow-auto p-4 space-y-4">
+        <main className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
           {/* Tab bar */}
           <div className="flex border-b">
             <button
@@ -107,31 +110,33 @@ export default function App() {
             </button>
           </div>
 
-          {tab === 'transcribe' && (
-            <>
-              {!isTranscribing && <FilePicker />}
-              <FileList />
-              {!isTranscribing && files.length > 0 && (
-                <>
-                  <SettingsPanel />
-                  <Button
-                    className="w-full"
-                    size="lg"
-                    disabled={mutation.isPending}
-                    onClick={() => mutation.mutate()}
-                  >
-                    {mutation.isPending ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />提交中...</>
-                    ) : (
-                      `开始转录 (${files.length} 个文件)`
-                    )}
-                  </Button>
-                </>
-              )}
-            </>
-          )}
+          <div className="flex-1 overflow-y-auto">
+            {tab === 'transcribe' && (
+              <div className="space-y-4">
+                {!isTranscribing && <FilePicker />}
+                <FileList />
+                {!isTranscribing && files.length > 0 && (
+                  <>
+                    <SettingsPanel />
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      disabled={mutation.isPending}
+                      onClick={() => mutation.mutate()}
+                    >
+                      {mutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />提交中...</>
+                      ) : (
+                        `开始转录 (${files.length} 个文件)`
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
-          {tab === 'models' && <ModelsPanel />}
+            {tab === 'models' && <ModelsPanel />}
+          </div>
         </main>
       )}
     </div>
