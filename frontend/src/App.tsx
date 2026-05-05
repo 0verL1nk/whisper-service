@@ -90,6 +90,9 @@ export default function App() {
     onSuccess: (data) => {
       setActiveTaskId(data.task_id)
     },
+    onError: (err) => {
+      console.error('Transcription failed:', err)
+    },
   })
 
   const isTranscribing = !!activeTaskId
